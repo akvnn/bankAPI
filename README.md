@@ -25,7 +25,7 @@ POST /api/login: User login endpoint. Authenticates the user and returns an acce
 POST /api/createAccount: Account creation endpoint. Creates a new bank account.<br>
 GET /api/getAllAccounts: Account retrieval endpoint. Returns all accounts associated with the authenticated user.<br>
 GET /api/getAccountDetails/:id Account details retrieval endpoint. Returns detailed information about a specific account.<br>
-POST /api/billPayment/:tyoe/:id Pays a particular bill and deducts amount from user's balance. Includes a feature for automatic monthly payment.<br>
+POST /api/billPayment/:type/:id Pays a particular bill and deducts amount from user's balance. Includes a feature for automatic monthly payment.<br>
 POST /api/addDebit/:id Deducts a particular amount from user's balance. Includes a feature for automatic monthly payment.<br>
 POST /api/allowance/:id Assigns allowance (or instant transfer) to another specified user in the bank account. Includes a feature for automatic monthly transfer.<br>
 GET /api/chatbot/:id OpenAI prompt execution endpoint. Sends a prompt to the OpenAI API and returns the generated response.<br>
