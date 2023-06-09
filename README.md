@@ -1,5 +1,5 @@
 # bankAPI
-__Note that this API repo is meant to be coupled with the bank webpage, which can be found in : underDevelopment__
+__Note that this API repo is meant to be coupled with the bank webpage, which can be found in : underDevelopment__ <br>
 __The live API for this project is hosted in Azure Cloud Services__
 
 The Bank API is a simple banking API that allows users to create accounts and manage their finances within a family setting.  <br>
