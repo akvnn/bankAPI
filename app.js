@@ -1,12 +1,15 @@
 const express = require('express')
 const jwt = require('jsonwebtoken')
-const cron = require('node-cron')
-let { accounts, users } = require('./data.js')
+const { Configuration, OpenAIApi } = require('openai')
 const server = express()
+const cron = require('node-cron')
+const { OPENAI_API_KEY, mongoDBPassword } = require('./passwords.js')
 let mongoDBConnection = false
 const { MongoClient, ServerApiVersion } = require('mongodb')
 const uri =
-  'mongodb+srv://oakvnnn:HPwr4rCttLdJvOdD@fambankapi.xckznhp.mongodb.net/?retryWrites=true&w=majority'
+  'mongodb+srv://oakvnnn:' +
+  mongoDBPassword +
+  '@fambankapi.xckznhp.mongodb.net/?retryWrites=true&w=majority'
 
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
@@ -197,9 +200,6 @@ const verifyToken = (req, res, next) => {
   }
 }
 //Middleware for openai
-const OPENAI_API_KEY = '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'
-const { Configuration, OpenAIApi } = require('openai')
-const { add } = require('nodemon/lib/rules/index.js')
 const callprompt = async (req, res, next) => {
   const configuration = new Configuration({
     apiKey: OPENAI_API_KEY,
