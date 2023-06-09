@@ -17,6 +17,7 @@ node-cron for scheduled events <br>
 ### Prerequisites
 Before running the API, make sure you install the dependencies required (given node.js is installed in your machine) using : <br>
 `npm install`<br>
+In addition, your openai API Key and MongoDB info are to be added in passwords.js  _(or just change the variables used)_ <br>
 To start the server, simply run `node app.js` in the terminal
 ### API Endpoints
 POST /api/signup: User registration endpoint. Creates a new user account.<br>
