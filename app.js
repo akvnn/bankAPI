@@ -3,14 +3,10 @@ const jwt = require('jsonwebtoken')
 const { Configuration, OpenAIApi } = require('openai')
 const server = express()
 const cron = require('node-cron')
-const { OPENAI_API_KEY, mongoDBPassword } = require('./passwords.js')
+const { OPENAI_API_KEY, mongoDBinfo } = require('./passwords.js')
 let mongoDBConnection = false
 const { MongoClient, ServerApiVersion } = require('mongodb')
-const uri =
-  'mongodb+srv://oakvnnn:' +
-  mongoDBPassword +
-  '@fambankapi.xckznhp.mongodb.net/?retryWrites=true&w=majority'
-
+const uri = mongoDBinfo // Connection URI
 // Create a MongoClient with a MongoClientOptions object to set the Stable API version
 const client = new MongoClient(uri, {
   serverApi: {
@@ -108,13 +104,14 @@ async function insertAccountToUser(id, item) {
   return result.modifiedCount // Number of documents modified
 }
 async function insertUserToAccount(id, newUserId, mainUser) {
+  let result = 0
   if (mainUser == true) {
-    const result = await accountsCollection.updateOne(
+    result = await accountsCollection.updateOne(
       { id: id }, // Filter to match the account by ID
       { $push: { mainUsersIDs: newUserId } }
     ) // Push the item to the "users" array field
   } else {
-    const result = await accountsCollection.updateOne(
+    result = await accountsCollection.updateOne(
       { id: id }, // Filter to match the account by ID
       { $push: { subUsersIDs: newUserId } }
     ) // Push the item to the "users" array field
@@ -134,8 +131,8 @@ async function updateBalance(id, userId, amount) {
     { $inc: { balance: -1 * amount } }
   )
   const resultTwo = await usersCollection.updateOne(
-    { id: userId },
-    { $inc: { balance: -1 * amount } }
+    { id: userId, 'accounts.accId': id },
+    { $inc: { 'accounts.$.balance': -1 * amount } }
   )
   return result.modifiedCount + resultTwo.modifiedCount // Number of documents modified
 }
@@ -245,7 +242,7 @@ const callprompt = async (req, res, next) => {
 //function to generate id
 generateUniqueId = () => {
   // Generate a random 6-digit ID
-  return Math.floor(Math.random() * 1000000)
+  return Math.floor(Math.random() * 1000000).toString()
 }
 generateUniqueCreditCardNumber = () => {
   // Generate a random 6-digit ID
@@ -256,7 +253,7 @@ server.get('/', (req, res) => {
   res.end('homepage')
 })
 //signup
-//{
+// {
 //     "name" : "ahmed",
 // "password" : "password123",
 // "dateOfBirth" : "17/01/2023",
@@ -358,7 +355,7 @@ server.post('/api/login', async (req, res) => {
 //create account
 server.post('/api/createAccount', verifyToken, async (req, res) => {
   const userId = req.userId
-  const balance = req.body.balance
+  const balance = Number(req.body.balance)
   const accId = generateUniqueId()
   //check if id is duplicate
   const isDuplicate = await isAccountDuplicate(accId)
@@ -454,7 +451,7 @@ server.post('/api/addUser/:id', verifyToken, async (req, res) => {
   const userId = req.userId
   const addedID = req.body.newID
   const newStatus = req.body.newStatus
-  const newBalance = req.body.newBalance
+  const newBalance = Number(req.body.newBalance)
   // const newUser =
   const account = await findAccountByID(accId)
   if (!account || !account.mainUsersIDs.includes(userId)) {
@@ -597,35 +594,26 @@ server.post('/api/billPayment/:type/:id', verifyToken, async (req, res) => {
     const user = await findUserByID(userId)
     const userAccount = user.accounts.find((acc) => acc.accId === accId)
     if (!account || !user || !userAccount) {
-      res.status(404).json({ status: false, message: 'Account not found' })
       cron.stop()
       return
     }
 
     if (amount > account.balance || userAccount.balance < amount) {
-      res.status(404).json({ status: false, message: 'Insufficient balance' })
       cron.stop()
       return
     }
     const insertTransactionCount = await insertTransaction(accId, transaction)
     if (insertTransactionCount === 0) {
-      res.status(400).json({
-        status: false,
-        message: 'Error occurred while adding transaction',
-      })
+      cron.stop()
       return
     }
     //update balance from account and user
     const updateBalanceCount = await updateBalance(accId, userId, amount)
     if (updateBalanceCount === 0) {
-      res.status(400).json({
-        status: false,
-        message: 'Error occurred while updating balance',
-      })
+      cron.stop()
       return
     }
   })
-  //not necessary
   res.status(200).json({
     status: true,
     message: 'Bill paid successfully',
@@ -637,7 +625,7 @@ server.post('/api/addDebit/:id', verifyToken, async (req, res) => {
   const amount = Number(req.body.amount)
   const title = req.body.title
   const endDateDay = req.body.day
-  const endDateMonth = req.body.month
+  const endDateMonth = req.body.month - 1 //months are 0-11
   const endDateYear = req.body.year
   const endDate = new Date(endDateYear, endDateMonth, endDateDay)
 
@@ -683,7 +671,10 @@ server.post('/api/addDebit/:id', verifyToken, async (req, res) => {
     return
   }
   //if enddate is less than 30 days from today
-  if (endDate < new Date().setDate(new Date().getDate() + 30)) {
+  let currentDate = new Date()
+  let futureDate = new Date()
+  futureDate.setDate(currentDate.getDate() + 30)
+  if (endDate.getTime() < futureDate.getTime()) {
     res.status(200).json({
       status: true,
       message: 'Debit added successfully (one time)',
@@ -691,7 +682,6 @@ server.post('/api/addDebit/:id', verifyToken, async (req, res) => {
     return
   }
   //else.. execute function every month until the end date
-  //execute function every month
   const today = new Date()
   const endDateX = new Date(today.setDate(today.getDate() + 30))
   const endDateDayX = endDateX.getDate()
@@ -699,12 +689,15 @@ server.post('/api/addDebit/:id', verifyToken, async (req, res) => {
   const endDateYearX = endDateX.getFullYear()
   const cronExpression = `0 0 1 ${endDateDayX} ${endDateMonthX} *`
   cron.schedule(cronExpression, async () => {
-    //stop if end date is reached or has been passed
-    if (endDate < new Date() || endDate == new Date()) {
-      res.status(400).json({
-        status: false,
-        message: 'End date passed',
-      })
+    //stop if end date is reached or has been passed or less than 30 days from today
+    let currentDate = new Date()
+    let futureDate = new Date()
+    futureDate.setDate(currentDate.getDate() + 30)
+    if (
+      endDate.getTime() < currentDate.getTime() ||
+      endDate == currentDate ||
+      endDate.getTime() < futureDate.getTime()
+    ) {
       cron.stop()
       return
     }
@@ -713,13 +706,11 @@ server.post('/api/addDebit/:id', verifyToken, async (req, res) => {
     const userAccount = user.accounts.find((acc) => acc.accId === accId)
     //not necessary given that we are using jwt
     if (!account || !user) {
-      res
-        .status(404)
-        .json({ status: false, message: 'Account or User not found' })
+      cron.stop()
       return
     }
     if (!account.mainUsersIDs.includes(userId)) {
-      res.status(401).json({ status: false, message: 'Access denied' })
+      cron.stop()
       return
     }
     if (
@@ -727,7 +718,7 @@ server.post('/api/addDebit/:id', verifyToken, async (req, res) => {
       amount < 0 ||
       userAccount.balance < amount
     ) {
-      res.status(404).json({ status: false, message: 'Invalid amount' })
+      cron.stop()
       return
     }
     const transaction = {
@@ -738,23 +729,16 @@ server.post('/api/addDebit/:id', verifyToken, async (req, res) => {
     }
     const insertTransactionCount = await insertTransaction(accId, transaction)
     if (insertTransactionCount === 0) {
-      res.status(400).json({
-        status: false,
-        message: 'Error occurred while adding transaction',
-      })
+      cron.stop()
       return
     }
     //update balance from account and user
     const updateBalanceCount = await updateBalance(accId, userId, amount)
     if (updateBalanceCount === 0) {
-      res.status(400).json({
-        status: false,
-        message: 'Error occurred while updating balance',
-      })
+      cron.stop()
       return
     }
   })
-  //not necessary
   res.status(200).json({
     status: true,
     message: 'Debit added successfully',
@@ -795,6 +779,15 @@ server.post('/api/allowance/:id', verifyToken, async (req, res) => {
       .json({ status: false, message: 'Transfer to user ID invalid' })
     return
   }
+  //check if you are transferring to yourself
+  if (transferToUser.id === userId) {
+    res.status(400).json({
+      status: false,
+      message: 'You cannot transfer to yourself',
+    })
+    return
+  }
+  //check if transferToUser is a main user or sub user
   if (
     !account.mainUsersIDs.includes(transferToUser.id) &&
     !account.subUsersIDs.includes(transferToUser.id)
@@ -827,7 +820,7 @@ server.post('/api/allowance/:id', verifyToken, async (req, res) => {
   }
   //update balance from recepient user (no function used here)
   const result = await usersCollection.updateOne(
-    { id: userId, 'accounts.accId': accId },
+    { id: transferToUser.id, 'accounts.accId': accId },
     { $inc: { 'accounts.$.balance': amount } }
   )
   if (result.modifiedCount === 0) {
@@ -840,7 +833,7 @@ server.post('/api/allowance/:id', verifyToken, async (req, res) => {
   if (instantTransfer == 'true') {
     res.status(200).json({
       status: true,
-      message: 'Allowance added successfully',
+      message: 'Allowance added successfully (instant transfer)',
     })
     return
   }
@@ -857,14 +850,10 @@ server.post('/api/allowance/:id', verifyToken, async (req, res) => {
     const user = await findUserByID(userId)
     const userAccount = user.accounts.find((acc) => acc.accId === accId)
     if (!account || !user || !userAccount) {
-      res
-        .status(404)
-        .json({ status: false, message: 'Account or User not found' })
       cron.stop()
       return
     }
     if (amount > account.balance || userAccount.balance < amount) {
-      res.status(404).json({ status: false, message: 'Insufficient balance' })
       cron.stop()
       return
     }
@@ -876,35 +865,25 @@ server.post('/api/allowance/:id', verifyToken, async (req, res) => {
     }
     const insertTransactionCount = await insertTransaction(accId, transaction)
     if (insertTransactionCount === 0) {
-      res.status(400).json({
-        status: false,
-        message: 'Error occurred while adding transaction',
-      })
+      cron.stop()
       return
     }
     //update balance from account and user
     const updateBalanceCount = await updateBalance(accId, userId, amount)
     if (updateBalanceCount === 0) {
-      res.status(400).json({
-        status: false,
-        message: 'Error occurred while updating balance',
-      })
+      cron.stop()
       return
     }
     //update balance from recepient user (no function used here)
     const result = await usersCollection.updateOne(
-      { id: userId, 'accounts.accId': accId },
+      { id: transferToUser.id, 'accounts.accId': accId },
       { $inc: { 'accounts.$.balance': amount } }
     )
     if (result.modifiedCount === 0) {
-      res.status(400).json({
-        status: false,
-        message: 'Error occurred while updating balance',
-      })
+      cron.stop()
       return
     }
   })
-  //not needed
   res.status(200).json({
     status: true,
     message: 'Allowance added successfully',
