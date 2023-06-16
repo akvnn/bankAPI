@@ -4,6 +4,8 @@ const { Configuration, OpenAIApi } = require('openai')
 const server = express()
 const cron = require('node-cron')
 const { OPENAI_API_KEY, mongoDBinfo } = require('./passwords.js')
+const cors = require('cors')
+server.use(cors())
 let mongoDBConnection = false
 const { MongoClient, ServerApiVersion } = require('mongodb')
 const uri = mongoDBinfo // Connection URI
