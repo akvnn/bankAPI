@@ -352,7 +352,13 @@ server.post('/api/login', async (req, res) => {
   const token = jwt.sign({ id: user.id }, 'yourSecretKey')
   res
     .status(200)
-    .json({ status: true, message: 'Login successful', id: user.id, token })
+    .json({
+      status: true,
+      message: 'Login successful',
+      id: user.id,
+      token,
+      name: user.name,
+    })
 })
 //create account
 server.post('/api/createAccount', verifyToken, async (req, res) => {
