@@ -427,6 +427,7 @@ server.get('/api/getAllAccounts', verifyToken, async (req, res) => {
     status: true,
     message: 'Accounts fetched successfully',
     accounts: userAccounts,
+    userName: user.name,
   })
 })
 //get 'one' account full details
@@ -463,6 +464,7 @@ server.get('/api/getAccountDetails/:id', verifyToken, async (req, res) => {
     account,
     userStatus: userAccount.status,
     userBalance: userAccount.balance,
+    userName: user.name,
   })
 })
 // add user to account
