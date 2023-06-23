@@ -203,10 +203,12 @@ const callprompt = async (req, res, next) => {
   const configuration = new Configuration({
     apiKey: OPENAI_API_KEY,
   })
+  let account = ''
+  let user = ''
   try {
     //get user and account
-    const account = await findAccountByID(req.params.id)
-    const user = await findUserByID(req.userId)
+    account = await findAccountByID(req.params.id)
+    user = await findUserByID(req.userId)
     if (!account || !user) {
       res.status(404).send('Account or User not found')
       return
@@ -220,23 +222,20 @@ const callprompt = async (req, res, next) => {
     const openai = new OpenAIApi(configuration)
     const response = await openai.createCompletion({
       model: 'text-davinci-003',
-      prompt:
-        'suppose you are acting as a virtual assistant for a bank. do this' +
-        // here are information about the user and the targeted account, what is the safe amount to spend:' +
-        // account +
-        // user,
-        req.query.text,
+      prompt: `suppose you are acting as a virtual assistant for a bank (fambank). user's name is ${user.name}, phone number is ${user.mobileNumber} and email is ${user.email}.  the user says ${req.query.text}`,
       temperature: 0,
       max_tokens: 1000,
     })
     if (response.data.choices && response.data.choices.length > 0) {
-      res.status(200).send(response.data.choices[0].text)
+      res
+        .status(200)
+        .json({ status: true, message: response.data.choices[0].text })
     } else {
-      res.status(404).send('error getting response..')
+      res.status(404).json({ status: false, message: 'Chat Bot Unavailable' })
     }
   } catch (error) {
     console.error('Error:', error)
-    res.status(404).send('Error occurred: ' + error.message)
+    res.status(404).json({ status: false, message: 'Chat Bot Unavailable' })
   }
 }
 //--------------------------------------------------
@@ -368,6 +367,16 @@ server.post('/api/createAccount', verifyToken, async (req, res) => {
   while (isDuplicate) {
     accId = generateUniqueId()
   }
+  const currentDate = new Date()
+
+  // Calculate the date seven years from today
+  const futureDate = new Date()
+  futureDate.setFullYear(currentDate.getFullYear() + 7)
+
+  // Format the date as dd/mm/yyyy
+  const formattedDate = `${futureDate.getDate()}/${
+    futureDate.getMonth() + 1
+  }/${futureDate.getFullYear()}`
   const account = {
     id: accId,
     mainUsersIDs: [userId],
@@ -376,10 +385,7 @@ server.post('/api/createAccount', verifyToken, async (req, res) => {
     transactions: [],
     creditCard: {
       number: generateUniqueCreditCardNumber(),
-      //set expiry date two years from today
-      expiryDate: new Date()
-        .setFullYear(new Date().getFullYear() + 2)
-        .toString(), //check if this works
+      expiryDate: formattedDate, //seven years from today
       cvv: Math.floor(Math.random() * 1000),
     },
   }
@@ -922,7 +928,7 @@ server.post('/api/allowance/:id', verifyToken, async (req, res) => {
     message: 'Allowance added successfully',
   })
 })
-//added -----------------------
+//extra -----------------------
 server.get(
   '/api/getNameFromID/:accId/:userId',
   verifyToken,
