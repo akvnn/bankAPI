@@ -350,15 +350,13 @@ server.post('/api/login', async (req, res) => {
     return
   }
   const token = jwt.sign({ id: user.id }, 'yourSecretKey')
-  res
-    .status(200)
-    .json({
-      status: true,
-      message: 'Login successful',
-      id: user.id,
-      token,
-      name: user.name,
-    })
+  res.status(200).json({
+    status: true,
+    message: 'Login successful',
+    id: user.id,
+    token,
+    name: user.name,
+  })
 })
 //create account
 server.post('/api/createAccount', verifyToken, async (req, res) => {
@@ -447,17 +445,31 @@ server.get('/api/getAccountDetails/:id', verifyToken, async (req, res) => {
     res.status(401).json({ status: false, message: 'Access denied' })
     return
   }
+  const user = await findUserByID(userId)
+  //not necessary
+  if (!user) {
+    res.status(401).json({ status: false, message: 'Access denied' })
+    return
+  }
+  const userAccount = user.accounts.find((acc) => acc.accId === accId)
+  if (!userAccount) {
+    //access denied
+    res.status(401).json({ status: false, message: 'Access denied' })
+    return
+  }
   res.status(200).json({
     status: true,
     message: 'Account details fetched successfully',
     account,
+    userStatus: userAccount.status,
+    userBalance: userAccount.balance,
   })
 })
 // add user to account
 server.post('/api/addUser/:id', verifyToken, async (req, res) => {
   const accId = req.params.id
   const userId = req.userId
-  const addedID = req.body.newID
+  const email = req.body.email
   const newStatus = req.body.newStatus
   const newBalance = Number(req.body.newBalance)
   // const newUser =
@@ -466,6 +478,12 @@ server.post('/api/addUser/:id', verifyToken, async (req, res) => {
     res.status(401).json({ status: false, message: 'Access denied' })
     return
   }
+  const newUser = await findUserByEmail(email)
+  if (!newUser) {
+    res.status(404).json({ status: false, message: 'User not found' })
+    return
+  }
+  const addedID = newUser.id
   //check if newUser is same as main user
   if (addedID === userId) {
     res.status(400).json({
@@ -635,8 +653,13 @@ server.post('/api/addDebit/:id', verifyToken, async (req, res) => {
   const endDateDay = req.body.day
   const endDateMonth = req.body.month - 1 //months are 0-11
   const endDateYear = req.body.year
-  const endDate = new Date(endDateYear, endDateMonth, endDateDay)
+  const endDate = new Date(
+    Number(endDateYear),
+    Number(endDateMonth),
+    Number(endDateDay)
+  )
 
+  console.log(endDateDay, endDateMonth, endDateYear)
   const account = await findAccountByID(accId)
   const user = await findUserByID(userId)
   const userAccount = user.accounts.find((acc) => acc.accId === accId)
@@ -897,6 +920,29 @@ server.post('/api/allowance/:id', verifyToken, async (req, res) => {
     message: 'Allowance added successfully',
   })
 })
+//added -----------------------
+server.get(
+  '/api/getNameFromID/:accId/:userId',
+  verifyToken,
+  async (req, res) => {
+    const accId = req.params.accId
+    const userId = req.params.userId
+    const account = await findAccountByID(accId)
+    const user = await findUserByID(userId)
+    if (!account || !user) {
+      res
+        .status(404)
+        .json({ status: false, message: 'Account or User not found' })
+      return
+    }
+    const userAccount = user.accounts.find((acc) => acc.accId === accId)
+    if (!userAccount) {
+      res.status(401).json({ status: false, message: 'Access Denied' })
+      return
+    }
+    res.status(200).json({ status: true, name: user.name })
+  }
+)
 //chat bot when logged in..
 //example : http://localhost:3000/api/chatbot/1224323?text=sayhi
 server.get('/api/chatbot/:id', verifyToken, callprompt, (req, res) => {})
