@@ -368,6 +368,16 @@ server.post('/api/createAccount', verifyToken, async (req, res) => {
   while (isDuplicate) {
     accId = generateUniqueId()
   }
+   const currentDate = new Date()
+
+  // Calculate the date seven years from today
+  const futureDate = new Date()
+  futureDate.setFullYear(currentDate.getFullYear() + 7)
+
+  // Format the date as dd/mm/yyyy
+  const formattedDate = `${futureDate.getDate()}/${
+    futureDate.getMonth() + 1
+  }/${futureDate.getFullYear()}`
   const account = {
     id: accId,
     mainUsersIDs: [userId],
@@ -376,10 +386,7 @@ server.post('/api/createAccount', verifyToken, async (req, res) => {
     transactions: [],
     creditCard: {
       number: generateUniqueCreditCardNumber(),
-      //set expiry date two years from today
-      expiryDate: new Date()
-        .setFullYear(new Date().getFullYear() + 2)
-        .toString(), //check if this works
+      expiryDate: formattedDate, //seven years from today
       cvv: Math.floor(Math.random() * 1000),
     },
   }
