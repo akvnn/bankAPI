@@ -1,6 +1,7 @@
 # bankAPI
-__Note that this API repo is meant to be coupled with the bank webpage, which can be found in : underDevelopment__ <br>
-__The live API for this project is hosted in Azure Cloud Services__
+__This API repository is meant to be coupled with the bank webpage, which can be found in : [FamBank Github](https://github.com/akvnn/fambank) or [FamBank Webpage](https://fambank.onrender.com/)__
+<br>
+__Note that the API used for the webpage is hosted privately on Render__
 
 bankAPI is a simple banking API that allows users to create accounts and manage their finances within a family setting.  <br>
 It provides functionality for adding users to accounts, creating accounts, and performing transactions. <br>
@@ -34,4 +35,4 @@ bankAPI ensures secure communication between the client and server using JWT (JS
 ### Credits
 bankAPI is fully developed by myself _Akvn_ __@akvnn__ 
 ### License
-bankeAPI is under the __[MIT License](LICENSE)__. <br> Feel free to modify and customize the API according to your requirements.
+bankAPI is under the __[MIT License](LICENSE)__. <br> Feel free to modify and customize the API according to your requirements.
